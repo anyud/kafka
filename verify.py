@@ -5,15 +5,6 @@ from sqlalchemy.exc import ProgrammingError
 # Kết nối đến PostgreSQL
 engine = create_engine('postgresql+psycopg2://postgres:20272027@localhost:5432/postgres')
 
-# Tạo schema mới 'silver' nếu chưa tồn tại
-with engine.connect() as connection:
-    try:
-        connection.execute(text("CREATE SCHEMA IF NOT EXISTS silver;"))
-        print("Schema silver đã được tạo thành công.")
-    except Exception as e:
-        print(f"Lỗi khi tạo schema silver: {e}")
-        connection.close()
-
 # Đọc dữ liệu từ PostgreSQL với xử lý lỗi
 try:
     stock_data = pd.read_sql("SELECT * FROM public.stock_data", engine)
