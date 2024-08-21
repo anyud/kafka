@@ -21,7 +21,7 @@ def stream_yfinance_to_kafka():
         for ticker in tickers:
             try:
                 # Lấy dữ liệu gần đây với khoảng 1 phút
-                stock_data = yf.download(ticker, period='1d', interval='1h')
+                stock_data = yf.download(ticker, period='1d', interval='1m')
                 
                 # Kiểm tra nếu không có dữ liệu
                 if stock_data.empty:
