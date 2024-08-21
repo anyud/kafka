@@ -1,6 +1,7 @@
 import json
 import psycopg2
 from kafka import KafkaConsumer
+from psycopg2 import sql
 
 # Kết nối đến PostgreSQL
 conn = psycopg2.connect(

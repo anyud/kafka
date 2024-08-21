@@ -15,13 +15,19 @@ producer = KafkaProducer(
 # 10 mã cổ phiếu
 tickers = ['AAPL', 'GOOGL', 'MSFT', 'AMZN', 'TSLA', 'NFLX', 'NVDA', 'FB', 'BABA', 'ORCL']
 
+# Lưu trữ thời gian cuối cùng lấy dữ liệu
+last_datetimes = {ticker: None for ticker in tickers}
+
 # Hàm stream dữ liệu từ yfinance vào Kafka
 def stream_yfinance_to_kafka():
     while True:
         for ticker in tickers:
             try:
-                # Lấy dữ liệu gần đây với khoảng 1 phút
-                stock_data = yf.download(ticker, period='1d', interval='1m')
+                # Sử dụng Ticker Object thay vì download toàn bộ
+                ticker_obj = yf.Ticker(ticker)
+                
+                # Lấy dữ liệu với khoảng thời gian 1 phút gần nhất
+                stock_data = ticker_obj.history(period='1d', interval='1m')
                 
                 # Kiểm tra nếu không có dữ liệu
                 if stock_data.empty:
@@ -31,25 +37,29 @@ def stream_yfinance_to_kafka():
                 stock_data.reset_index(inplace=True)
                 
                 for index, row in stock_data.iterrows():
-                    # Kiểm tra từng giá trị để đảm bảo dữ liệu đầy đủ
-                    if pd.isna(row['Open']) or pd.isna(row['Close']):
-                        print(f"Dữ liệu thiếu cho {ticker} tại {row['Datetime']}")
-                        continue
+                    # Chỉ lấy dữ liệu mới sau lần cuối cùng lấy dữ liệu
+                    if last_datetimes[ticker] is None or row['Datetime'] > last_datetimes[ticker]:
+                        if pd.isna(row['Open']) or pd.isna(row['Close']):
+                            print(f"Dữ liệu thiếu cho {ticker} tại {row['Datetime']}")
+                            continue
 
-                    data = {
-                        'datetime': row['Datetime'].strftime('%Y-%m-%d %H:%M:%S'),
-                        'open_price': row['Open'],
-                        'close_price': row['Close'],
-                        'high_price': row['High'],
-                        'low_price': row['Low'],
-                        'volume': row['Volume'],
-                        'ticker': ticker
-                    }
-                    
-                    topic = f'stock_{ticker}_topic'  # Tạo topic tương ứng với mã cổ phiếu
-                    producer.send(topic, value=data)
-                    producer.flush()
-                    print(f"Đã gửi dữ liệu vào Kafka topic {topic}: {data}")
+                        data = {
+                            'datetime': row['Datetime'].strftime('%Y-%m-%d %H:%M:%S'),
+                            'open_price': row['Open'],
+                            'close_price': row['Close'],
+                            'high_price': row['High'],
+                            'low_price': row['Low'],
+                            'volume': row['Volume'],
+                            'ticker': ticker
+                        }
+                        
+                        topic = f'stock_{ticker}_topic'  # Tạo topic tương ứng với mã cổ phiếu
+                        producer.send(topic, value=data)
+                        producer.flush()
+                        print(f"Đã gửi dữ liệu vào Kafka topic {topic}: {data}")
+                        
+                        # Cập nhật thời gian cuối cùng lấy dữ liệu
+                        last_datetimes[ticker] = row['Datetime']
             
             except Exception as e:
                 print(f"Lỗi khi lấy dữ liệu cho {ticker}: {e}")
